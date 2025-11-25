@@ -1,114 +1,140 @@
-def create_board():
+# constants.py
+EMPTY = " "
+PLAYER_X = "X"
+PLAYER_O = "O"
 
-    return [
-        [' ', ' ', ' '],
-        [' ', ' ', ' '],
-        [' ', ' ', ' ']
-    ]
+WIN_COMBINATIONS = [
+    (0,1,2), (3,4,5), (6,7,8),   # rows
+    (0,3,6), (1,4,7), (2,5,8),   # columns
+    (0,4,8), (2,4,6)             # diagonals
+]
 
-def print_board(board):
-    print("\n   0   1   2")
-    for i, row in enumerate(board):
+# board.py
+from constants import EMPTY
 
-        print(f"{i}  " + " | ".join(row))
-        if i < 2:
-            print("   ---|---|---")
-    print()
+class Board:
+    def __init__(self):
+        self.cells = [EMPTY] * 9
 
-def check_win(board, player):
-    for r in range(3):
-        if all(board[r][c] == player for c in range(3)):
+    def display(self):
+        print("\n")
+        for i in range(0, 9, 3):
+            print(f" {self.cells[i]} | {self.cells[i+1]} | {self.cells[i+2]} ")
+            if i < 6:
+                print("---+---+---")
+        print("\n")
+
+    def update_cell(self, index, symbol):
+        if self.cells[index] == EMPTY:
+            self.cells[index] = symbol
             return True
+        return False
 
-    for c in range(3):
-        if all(board[r][c] == player for r in range(3)):
+    def is_full(self):
+        return EMPTY not in self.cells
+
+    def reset(self):
+        self.cells = [EMPTY] * 9
+
+# player.py
+class Player:
+    def __init__(self, name, symbol):
+        self.name = name
+        self.symbol = symbol
+
+    def get_move(self):
+        try:
+            return int(input(f"{self.name} ({self.symbol}), enter position (1-9): ")) - 1
+        except ValueError:
+            return -1
+
+# utils.py
+from constants import WIN_COMBINATIONS
+
+def check_win(board, symbol):
+    cells = board.cells
+    for a, b, c in WIN_COMBINATIONS:
+        if cells[a] == cells[b] == cells[c] == symbol:
             return True
-
-    if all(board[i][i] == player for i in range(3)):
-        return True
-
-
-    if all(board[i][2 - i] == player for i in range(3)):
-        return True
-
-
     return False
 
-def check_draw(board):
+def validate_move(move):
+    return 0 <= move <= 8
 
-    for r in range(3):
-        for c in range(3):
-            if board[r][c] == ' ':
-                return False
+# game.py
+from board import Board
+from utils import check_win, validate_move
+from constants import PLAYER_X, PLAYER_O
+from player import Player
 
-    return True
+class Game:
+    def __init__(self):
+        print("=== Tic Tac Toe ===\n")
+        p1_name = input("Enter Player 1 Name: ")
+        p2_name = input("Enter Player 2 Name: ")
 
-def get_player_input(player, board):
+        self.player1 = Player(p1_name, PLAYER_X)
+        self.player2 = Player(p2_name, PLAYER_O)
+        self.board = Board()
 
-    while True:
-        user_input = input(f"Player '{player}', enter move (row col): ")
-        parts = user_input.split()
+    def play(self):
+        current_player = self.player1
 
+        while True:
+            self.board.display()
+            move = current_player.get_move()
 
-        if len(parts) != 2:
-            print("Invalid input. Please enter TWO numbers separated by a space.")
-            continue
+            if not validate_move(move):
+                print("Invalid input! Enter a number between 1–9.")
+                continue
 
-        row_str, col_str = parts
+            if not self.board.update_cell(move, current_player.symbol):
+                print("Cell already occupied! Try again.")
+                continue
 
+            if check_win(self.board, current_player.symbol):
+                self.board.display()
+                print(f"🎉 {current_player.name} ({current_player.symbol}) WINS!")
+                break
 
-        if not (row_str.isdigit() and col_str.isdigit()):
-            print("Invalid input. Please enter NUMBERS for row and col.")
-            continue
+            if self.board.is_full():
+                self.board.display()
+                print("It's a DRAW!")
+                break
 
+            # switch player
+            current_player = self.player2 if current_player == self.player1 else self.player1
 
-        row = int(row_str)
-        col = int(col_str)
+    def start(self):
+        while True:
+            self.play()
+            again = input("Play again? (y/n): ").lower()
+            if again != 'y':
+                print("Thanks for playing!")
+                break
+            self.board.reset()
 
-        if not (0 <= row <= 2 and 0 <= col <= 2):
-            print("Coordinates out of range. Must be 0, 1, or 2.")
-            continue
-
-
-        if board[row][col] != ' ':
-            print("That cell is already taken! Try again.")
-            continue
-        return row, col
-
-
-
-def play_game():
-
-
-    print("--- Welcome to Tic-Tac-Toe! ---")
-
-    board = create_board()
-    current_player = 'X'
-    game_over = False
-
-    while not game_over:
-
-        print_board(board)
-
-
-        row, col = get_player_input(current_player, board)
-
-
-        board[row][col] = current_player
-
-        if check_win(board, current_player):
-            print_board(board)
-            print(f"🎉 Player '{current_player}' wins! Congratulations!")
-            game_over = True
-
-
-        elif check_draw(board):
-            print_board(board)
-            print("It's a draw! 🤝")
-            game_over = True
-
-        else:
-            current_player = 'O' if current_player == 'X' else 'X'
+# main.py
+from game import Game
 
 if __name__ == "__main__":
-    play_game()
+    game = Game()
+    game.start()
+
+# tests/test_game.py
+import unittest
+from board import Board
+from utils import check_win
+from constants import PLAYER_X
+
+class TestGame(unittest.TestCase):
+    def test_win_condition(self):
+        board = Board()
+        board.cells = ["X", "X", "X",
+                       " ", " ", " ",
+                       " ", " ", " "]
+        self.assertTrue(check_win(board, PLAYER_X))
+
+if __name__ == "__main__":
+    unittest.main()
+    
